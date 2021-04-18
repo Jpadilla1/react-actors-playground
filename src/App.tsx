@@ -7,7 +7,7 @@ bootstrap();
 const auth = lookup("auth");
 
 function App() {
-    const [state] = useService(auth);
+    const [state, send] = useService(auth);
 
     return (
         <div className="App">
@@ -16,7 +16,21 @@ function App() {
             )}
             {state.matches("checkingAuth") && <p>Validating auth...</p>}
             {state.matches("requestLogin") && <Login />}
-            {state.matches("authenticated") && <p>Authenticated</p>}
+            {state.matches("authenticated") && (
+                <>
+                    <p>Authenticated</p>
+                    <button
+                        onClick={() => {
+                            send({
+                                type: "logout",
+                                redirectTo: window.location.origin,
+                            } as any);
+                        }}
+                    >
+                        Logout
+                    </button>
+                </>
+            )}
         </div>
     );
 }

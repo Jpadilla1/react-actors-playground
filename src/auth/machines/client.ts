@@ -1,6 +1,6 @@
 import { createMachine } from "xstate";
 import { sendParent } from "xstate/lib/actions";
-import { AUTH_COOKIE_NAME } from "../constants";
+import { getAuth0Client } from "../providers/auth0";
 
 export const clientMachine = createMachine(
     {
@@ -14,23 +14,13 @@ export const clientMachine = createMachine(
                 },
             },
             success: {
-                entry: sendParent("CLIENT_INITIALIZED", { delay: 3000 }),
+                entry: sendParent("CLIENT_INITIALIZED"),
             },
         },
     },
     {
         services: {
-            initializeClient: () => {
-                return new Promise<void>((resolve) => {
-                    const cookieName = localStorage.getItem(AUTH_COOKIE_NAME);
-
-                    if (!cookieName) {
-                        localStorage.setItem(AUTH_COOKIE_NAME, "client-token");
-                    }
-
-                    resolve();
-                });
-            },
+            initializeClient: () => getAuth0Client(),
         },
     }
 );

@@ -1,34 +1,45 @@
-import { assign, createMachine, sendParent } from "xstate";
-import { AUTH_COOKIE_NAME } from "../constants";
+import { createMachine, sendParent } from "xstate";
+import { getAuth0Client } from "../providers/auth0";
 
 export const loginMachine = createMachine(
     {
+        id: "loginMachine",
         initial: "idle",
-        context: {
-            error: null,
-        },
         states: {
             idle: {
                 on: {
-                    attemptLogin: "attemptingLogin",
+                    init: [
+                        {
+                            target: "authCallback",
+                            cond: "hasAuthParameters",
+                        },
+                        {
+                            target: "login",
+                        },
+                    ],
                 },
             },
-            attemptingLogin: {
-                invoke: {
-                    src: "makeLoginRequest",
-                    onDone: "success",
-                    onError: "failure",
-                },
-            },
-            failure: {
-                entry: assign((_, { data }: any) => ({ error: data.error })),
+            login: {
                 on: {
-                    attemptLogin: {
-                        target: "attemptingLogin",
-                        actions: assign<any>(() => ({ error: null })),
-                    },
+                    attemptLogin: "redirectToLogin",
                 },
             },
+            redirectToLogin: {
+                invoke: {
+                    src: "makeRedirectToLogin",
+                    onDone: "redirectingToLoginPage",
+                    onError: "unexpectedError",
+                },
+            },
+            authCallback: {
+                invoke: {
+                    src: "handleAuthCallback",
+                    onDone: "success",
+                    onError: "unexpectedError",
+                },
+            },
+            unexpectedError: {},
+            redirectingToLoginPage: {},
             success: {
                 entry: sendParent("LOGIN_SUCCESS"),
             },
@@ -36,15 +47,19 @@ export const loginMachine = createMachine(
     },
     {
         services: {
-            makeLoginRequest: (_, { user, pass }) =>
-                new Promise<void>((resolve, reject) => {
-                    if (user === pass && user === "jpadilla") {
-                        resolve();
-                        localStorage.setItem(AUTH_COOKIE_NAME, "access-token");
-                    } else {
-                        reject({ error: "failed to login" });
-                    }
-                }),
+            makeRedirectToLogin: async (_, { redirectUri }: any) => {
+                const auth0Client = await getAuth0Client();
+                return auth0Client.loginWithRedirect({
+                    redirect_uri: redirectUri,
+                });
+            },
+            handleAuthCallback: async () => {
+                const auth0Client = await getAuth0Client();
+                return auth0Client.handleRedirectCallback();
+            },
+        },
+        guards: {
+            hasAuthParameters: (_, { code, state }) => code && state,
         },
     }
 );

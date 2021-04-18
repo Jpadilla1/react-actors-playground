@@ -1,6 +1,6 @@
 import { createMachine } from "xstate";
 import { sendParent } from "xstate/lib/actions";
-import { AUTH_COOKIE_NAME } from "../constants";
+import { getAuth0Client } from "../providers/auth0";
 
 export const authenticationMachine = createMachine(
     {
@@ -15,25 +15,22 @@ export const authenticationMachine = createMachine(
                 },
             },
             authenticated: {
-                entry: sendParent("USER_AUTHENTICATED", { delay: 3000 }),
+                entry: sendParent("USER_AUTHENTICATED"),
             },
             notAuthenticated: {
-                entry: sendParent("USER_NOT_AUTHENTICATED", { delay: 3000 }),
+                entry: sendParent("USER_NOT_AUTHENTICATED"),
             },
         },
     },
     {
         services: {
-            checkAuthValidity: () => {
-                return new Promise<void>((resolve, reject) => {
-                    const cookieName = localStorage.getItem(AUTH_COOKIE_NAME);
+            checkAuthValidity: async () => {
+                const client = await getAuth0Client();
+                const isAuthenticated = await client.isAuthenticated();
 
-                    if (!cookieName?.startsWith("access")) {
-                        reject();
-                    }
-
-                    resolve();
-                });
+                if (!isAuthenticated) {
+                    throw new Error("User is not authenticated");
+                }
             },
         },
     }
